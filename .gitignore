@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+database.db
+scan_report.pdf
+scan_report.html
+.env
