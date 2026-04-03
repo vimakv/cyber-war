@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body{background:#0f172a;color:white;text-align:center}
+.card{background:#020617;margin:20px;padding:20px;width:400px}
+.safe{color:#22c55e;}
+.vulnerable{color:#ef4444;}
+</style>
+</head>
+
+<body>
+
+<h2>⚔️ Cyber War Scanner</h2>
+
+<a href="/dashboard"><button>Dashboard</button></a>
+<a href="/logout"><button>Logout</button></a>
+
+<form method="POST">
+<input name="url" placeholder="Enter URL">
+<button>Scan</button>
+</form>
+
+{% if result %}
+<div class="card">
+{% for k,v in result.items() %}
+<p>{{k}}:
+{% if "Safe" in v %}
+<span class="safe">{{v}}</span>
+{% else %}
+<span class="vulnerable">{{v}}</span>
+{% endif %}
+</p>
+{% endfor %}
+
+<a href="/download"><button>PDF</button></a>
+<a href="/download_html"><button>HTML</button></a>
+
+</div>
+{% endif %}
+
+</body>
+</html>

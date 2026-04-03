@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Cyber War Register</title>
+<style>
+body {
+    margin:0;
+    font-family:sans-serif;
+    background:url('https://images.unsplash.com/photo-1510511459019-5dda7724fd87') no-repeat center/cover;
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+}
+body::before {
+    content:"";
+    position:fixed;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.85);
+}
+.card {
+    padding:40px;
+    width:300px;
+    border-radius:15px;
+    background:rgba(255,255,255,0.05);
+    backdrop-filter:blur(15px);
+    text-align:center;
+    color:white;
+}
+h2 {color:#00ff9f;}
+input {margin:10px;padding:10px;width:90%;}
+button {width:100%;padding:10px;background:#00ff9f;border:none;}
+</style>
+</head>
+<body>
+
+<div class="card">
+<h2>⚔️ Cyber War</h2>
+<form method="POST">
+<input name="username" required>
+<input type="password" name="password" required>
+<button>Register</button>
+</form>
+<a href="/login">Login</a>
+</div>
+
+</body>
+</html>
