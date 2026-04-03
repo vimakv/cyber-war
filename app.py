@@ -9,11 +9,15 @@ from report import generate_report
 app = Flask(__name__)
 app.secret_key = "cyberwar_secret"
 
+# ✅ Correct DB path (important for deployment)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "database.db")
+
 history = []
 
 # -------- DATABASE --------
 def init_db():
-    conn = sqlite3.connect("database.db")
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
     cur.execute("""
@@ -37,7 +41,7 @@ def register():
         p = generate_password_hash(request.form['password'])
 
         try:
-            conn = sqlite3.connect("database.db")
+            conn = sqlite3.connect(DB_PATH)
             cur = conn.cursor()
             cur.execute("INSERT INTO users (username,password) VALUES (?,?)",(u,p))
             conn.commit()
@@ -56,7 +60,7 @@ def login():
         u = request.form['username']
         p = request.form['password']
 
-        conn = sqlite3.connect("database.db")
+        conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
         cur.execute("SELECT * FROM users WHERE username=?",(u,))
         user = cur.fetchone()
@@ -104,7 +108,7 @@ def index():
 # -------- DOWNLOAD PDF --------
 @app.route('/download')
 def download():
-    path="scan_report.pdf"
+    path=os.path.join(BASE_DIR, "scan_report.pdf")
     if os.path.exists(path):
         return send_file(path,as_attachment=True)
     return "No report"
@@ -112,7 +116,7 @@ def download():
 # -------- DOWNLOAD HTML --------
 @app.route('/download_html')
 def download_html():
-    path="scan_report.html"
+    path=os.path.join(BASE_DIR, "scan_report.html")
     if os.path.exists(path):
         return send_file(path,as_attachment=True)
     return "No report"
@@ -120,12 +124,14 @@ def download_html():
 # -------- ADMIN --------
 @app.route('/admin')
 def admin():
-    conn=sqlite3.connect("database.db")
+    conn=sqlite3.connect(DB_PATH)
     cur=conn.cursor()
     cur.execute("SELECT id,username FROM users")
     users=cur.fetchall()
     conn.close()
     return render_template("admin.html",users=users)
 
-if __name__=="__main__":
-    app.run(debug=True)
+# -------- RUN (IMPORTANT FOR RENDER) --------
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
