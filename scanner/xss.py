@@ -3,9 +3,13 @@ import requests
 def scan_xss(url):
     payloads = [
         "<script>alert(1)</script>",
-        "<img src=x onerror=alert(1)>",
-        "\"><script>alert(1)</script>"
+        "\"><script>alert(1)</script>",
+        "<img src=x onerror=alert(1)>"
     ]
+
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
 
     try:
         for payload in payloads:
@@ -15,14 +19,15 @@ def scan_xss(url):
             else:
                 test_url = url + "?q=" + payload
 
-            res = requests.get(test_url, timeout=4)
+            r = requests.get(test_url, headers=headers, timeout=5)
 
-            if payload.lower() in res.text.lower():
+            # 🔥 reflected XSS check
+            if payload.lower() in r.text.lower():
                 return "Vulnerable"
 
         return "Safe"
 
     except requests.exceptions.Timeout:
-        return "No Response"
-    except Exception as e:
-        return "Error"
+        return "Timeout"
+    except:
+        return "Unreachable"

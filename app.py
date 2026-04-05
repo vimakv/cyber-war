@@ -1,13 +1,21 @@
-from flask import Flask, request, render_template, redirect, session
-import sqlite3, re, random, time
+from flask import Flask, request, render_template, redirect, session, send_file
+import sqlite3, os, re, random, time
 from werkzeug.security import generate_password_hash, check_password_hash
+from urllib.parse import urlparse
 
 # EMAIL
 from flask_mail import Mail, Message
 
-# SCANNER
+# SCANNERS
 from scanner.sql_injection import scan_sql
 from scanner.xss import scan_xss
+from scanner.headers import scan_headers
+from scanner.open_redirect import scan_redirect
+from scanner.port_scanner import scan_ports
+from scanner.subdomain import scan_subdomains
+from scanner.bruteforce import simulate_bruteforce
+
+from report import generate_report
 
 app = Flask(__name__)
 app.secret_key = "secret123"
@@ -18,8 +26,8 @@ DB_PATH = "database.db"
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = "cyberwarrs@gmail.com"   # 👈 YOUR EMAIL
-app.config['MAIL_PASSWORD'] = "ulyhjsrnxnikozsn"          # 👈 APP PASSWORD (NO SPACES)
+app.config['MAIL_USERNAME'] = "cyberwarrs@gmail.com"
+app.config['MAIL_PASSWORD'] = "ulyhjsrnxnikozsn"
 app.config['MAIL_DEFAULT_SENDER'] = app.config['MAIL_USERNAME']
 
 mail = Mail(app)
@@ -105,7 +113,6 @@ def register():
         session['otp'] = otp
         session['otp_time'] = time.time()
 
-        # 🔥 SEND EMAIL
         try:
             msg = Message(
                 subject="Cyber War OTP Verification",
@@ -114,10 +121,9 @@ def register():
             msg.body = f"Your OTP is: {otp}"
             mail.send(msg)
             print("✅ Email sent")
-
         except Exception as err:
-            print("❌ Email failed:", err)
-            print("🔥 OTP (fallback):", otp)
+            print("❌ Email error:", err)
+            print("🔥 OTP:", otp)
 
         return redirect('/verify')
 
@@ -203,16 +209,35 @@ def scanner():
         if "?" not in url:
             url += "?id=1"
 
+        parsed = urlparse(url)
+        host = parsed.netloc or parsed.path
+
         sql = scan_sql(url)
         xss = scan_xss(url)
+        headers = scan_headers(url)
+        redirect_vuln = scan_redirect(url)
+        ports = scan_ports(host)
+        subs = scan_subdomains(host)
+        brute = simulate_bruteforce()
 
         result['SQL Injection'] = sql
         result['XSS'] = xss
+        result['Security Headers'] = headers
+        result['Open Redirect'] = redirect_vuln
+        result['Port Scan'] = ports
+        result['Subdomains'] = subs
+        result['Brute Force'] = brute
 
-        if "Vulnerable" in sql or "Vulnerable" in xss:
+        # 🔥 SEVERITY
+        if any("Vulnerable" in str(v) for v in result.values()):
             result['Severity'] = "High"
+        elif "Open Ports" in result['Port Scan']:
+            result['Severity'] = "Medium"
         else:
             result['Severity'] = "Low"
+
+        # REPORT
+        generate_report(url, result)
 
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
@@ -224,6 +249,19 @@ def scanner():
         conn.close()
 
     return render_template("index.html", result=result)
+
+# ================= DOWNLOAD =================
+@app.route('/download')
+def download():
+    if os.path.exists("scan_report.pdf"):
+        return send_file("scan_report.pdf", as_attachment=True)
+    return "No report"
+
+@app.route('/download_html')
+def download_html():
+    if os.path.exists("scan_report.html"):
+        return send_file("scan_report.html", as_attachment=True)
+    return "No report"
 
 # ================= PROFILE =================
 @app.route('/profile')

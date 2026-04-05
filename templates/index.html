@@ -1,117 +1,96 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Cyber War Scanner</title>
+<title>Cyber War Terminal</title>
 
 <style>
 body {
-    margin: 0;
-    font-family: 'Segoe UI';
-    background: linear-gradient(135deg,#e3f2fd,#ffffff);
+    background:black;
+    color:#00ff9f;
+    font-family:monospace;
+    padding:20px;
 }
 
-.nav {
-    background: #0f172a;
-    color: white;
-    padding: 15px;
-    display:flex;
-    justify-content:space-between;
+/* TERMINAL BOX */
+.terminal {
+    border:1px solid #00ff9f;
+    padding:20px;
+    border-radius:10px;
+    box-shadow:0 0 20px #00ff9f;
 }
 
-.container {
-    width: 420px;
-    margin: 80px auto;
-    background: white;
-    padding: 30px;
-    border-radius: 15px;
-    text-align:center;
-}
-
-button {
-    background: linear-gradient(45deg,#007bff,#00c6ff);
-    border:none;
+/* INPUT */
+input {
+    width:80%;
     padding:10px;
-    color:white;
+    background:black;
+    border:1px solid #00ff9f;
+    color:#00ff9f;
+}
+
+/* BUTTON */
+button {
+    padding:10px;
+    background:#00ff9f;
+    border:none;
     cursor:pointer;
 }
 
-button:hover {
-    transform: scale(1.05);
-}
-
-.safe {color:green;}
-.vuln {color:red;}
-.medium {color:orange;}
-
-.spinner {
-    border:6px solid #eee;
-    border-top:6px solid blue;
-    border-radius:50%;
-    width:40px;
-    height:40px;
-    animation:spin 1s linear infinite;
-    margin:auto;
-}
-
-@keyframes spin {
-    100%{transform:rotate(360deg);}
+/* OUTPUT */
+.output {
+    margin-top:20px;
+    white-space:pre-line;
 }
 </style>
+
+<script>
+function typeEffect(text, id) {
+    let i = 0;
+    let speed = 20;
+    let elem = document.getElementById(id);
+    elem.innerHTML = "";
+
+    function type() {
+        if (i < text.length) {
+            elem.innerHTML += text.charAt(i);
+            i++;
+            setTimeout(type, speed);
+        }
+    }
+    type();
+}
+</script>
+
 </head>
 
 <body>
 
-<div class="nav">
-<h2>⚔️ Cyber War</h2>
-<div>
-<a href="/dashboard" style="color:white;">Dashboard</a>
-<a href="/logout" style="color:white;">Logout</a>
-</div>
-</div>
+<div class="terminal">
 
-<div class="container">
+<h3>⚔️ CYBER WAR TERMINAL</h3>
 
-<h2>Scan Website</h2>
-
-<form method="POST" onsubmit="showLoader()">
-<input name="url" placeholder="https://example.com" required>
-<button>Scan</button>
+<form method="POST">
+<input name="url" placeholder="Enter target URL" required>
+<button>SCAN</button>
 </form>
 
-<div id="loader" style="display:none;">
-<div class="spinner"></div>
-<p>Scanning...</p>
-</div>
-
 {% if result %}
-<p>SQL:
-<span class="{{ 'vuln' if result['SQL Injection']=='Vulnerable' else 'safe' }}">
-{{ result['SQL Injection'] }}
-</span></p>
 
-<p>XSS:
-<span class="{{ 'vuln' if result['XSS']=='Vulnerable' else 'safe' }}">
-{{ result['XSS'] }}
-</span></p>
-
-<p>Severity:
-<span class="
-{% if result['Severity']=='High' %}vuln
-{% elif result['Severity']=='Medium' %}medium
-{% else %}safe
-{% endif %}
-">
-{{ result['Severity'] }}
-</span></p>
-{% endif %}
-
-</div>
+<div class="output" id="out"></div>
 
 <script>
-function showLoader(){
-document.getElementById("loader").style.display="block";
-}
+let data = `
+{% for k,v in result.items() %}
+{{ k }} : {{ v }}
+{% endfor %}
+`;
+
+typeEffect(data, "out");
 </script>
+
+{% endif %}
+
+</div>
 
 </body>
 </html>
