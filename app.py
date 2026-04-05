@@ -1,21 +1,30 @@
-from flask import Flask, request, render_template, redirect, session, send_file
-import sqlite3, os
+from flask import Flask, request, render_template, redirect, session
+import sqlite3, re, random, time
 from werkzeug.security import generate_password_hash, check_password_hash
 
+# EMAIL
+from flask_mail import Mail, Message
+
+# SCANNER
 from scanner.sql_injection import scan_sql
 from scanner.xss import scan_xss
-from report import generate_report
 
 app = Flask(__name__)
-app.secret_key = "cyberwar_secret"
+app.secret_key = "secret123"
 
-# ✅ Correct DB path (important for deployment)
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "database.db")
+DB_PATH = "database.db"
 
-history = []
+# ================= EMAIL CONFIG =================
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = "cyberwarrs@gmail.com"   # 👈 YOUR EMAIL
+app.config['MAIL_PASSWORD'] = "ulyhjsrnxnikozsn"          # 👈 APP PASSWORD (NO SPACES)
+app.config['MAIL_DEFAULT_SENDER'] = app.config['MAIL_USERNAME']
 
-# -------- DATABASE --------
+mail = Mail(app)
+
+# ================= DATABASE =================
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
@@ -24,7 +33,17 @@ def init_db():
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
+        email TEXT UNIQUE,
         password TEXT
+    )
+    """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS scans (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        url TEXT,
+        result TEXT,
+        user_id TEXT
     )
     """)
 
@@ -33,105 +52,199 @@ def init_db():
 
 init_db()
 
-# -------- REGISTER --------
+# ================= VALIDATION =================
+def valid_password(p):
+    return (
+        6 <= len(p) <= 12 and
+        any(c.isupper() for c in p) and
+        any(c.islower() for c in p) and
+        any(c in "!@#$%^&*" for c in p)
+    )
+
+# ================= HOME =================
+@app.route('/')
+def home():
+    if 'user' in session:
+        return redirect('/dashboard')
+    return redirect('/login')
+
+# ================= REGISTER =================
 @app.route('/register', methods=['GET','POST'])
 def register():
     if request.method == 'POST':
-        u = request.form['username']
-        p = generate_password_hash(request.form['password'])
+        u = request.form.get('username')
+        e = request.form.get('email')
+        p = request.form.get('password')
+        cp = request.form.get('confirm_password')
 
-        try:
-            conn = sqlite3.connect(DB_PATH)
-            cur = conn.cursor()
-            cur.execute("INSERT INTO users (username,password) VALUES (?,?)",(u,p))
-            conn.commit()
-            conn.close()
-        except:
-            return "⚠️ User exists"
+        if not u or not e or not p or not cp:
+            return render_template("register.html", error="All fields required")
 
-        return redirect('/login')
+        if not re.match(r"[^@]+@[^@]+\.[^@]+", e):
+            return render_template("register.html", error="Invalid email")
 
-    return render_template("register.html")
+        if p != cp:
+            return render_template("register.html", error="Passwords mismatch")
 
-# -------- LOGIN --------
-@app.route('/login', methods=['GET','POST'])
-def login():
-    if request.method == 'POST':
-        u = request.form['username']
-        p = request.form['password']
+        if not valid_password(p):
+            return render_template("register.html", error="Weak password")
 
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
-        cur.execute("SELECT * FROM users WHERE username=?",(u,))
+
+        cur.execute("SELECT * FROM users WHERE email=?", (e,))
+        if cur.fetchone():
+            conn.close()
+            return render_template("register.html", error="Email exists")
+
+        conn.close()
+
+        otp = str(random.randint(100000,999999))
+
+        session['temp_user'] = (u,e,p)
+        session['otp'] = otp
+        session['otp_time'] = time.time()
+
+        # 🔥 SEND EMAIL
+        try:
+            msg = Message(
+                subject="Cyber War OTP Verification",
+                recipients=[e]
+            )
+            msg.body = f"Your OTP is: {otp}"
+            mail.send(msg)
+            print("✅ Email sent")
+
+        except Exception as err:
+            print("❌ Email failed:", err)
+            print("🔥 OTP (fallback):", otp)
+
+        return redirect('/verify')
+
+    return render_template("register.html")
+
+# ================= VERIFY =================
+@app.route('/verify', methods=['GET','POST'])
+def verify():
+    if request.method == 'POST':
+
+        if time.time() - session.get('otp_time',0) > 300:
+            return "❌ OTP expired"
+
+        if request.form.get('otp') == session.get('otp'):
+
+            u,e,p = session.get('temp_user',(None,None,None))
+            hashed = generate_password_hash(p)
+
+            conn = sqlite3.connect(DB_PATH)
+            cur = conn.cursor()
+
+            cur.execute(
+                "INSERT INTO users (username,email,password) VALUES (?,?,?)",
+                (u,e,hashed)
+            )
+
+            conn.commit()
+            conn.close()
+
+            session.clear()
+            return redirect('/login')
+
+        return "❌ Invalid OTP"
+
+    return render_template("verify.html")
+
+# ================= LOGIN =================
+@app.route('/login', methods=['GET','POST'])
+def login():
+    if request.method == 'POST':
+        u = request.form.get('username')
+        p = request.form.get('password')
+
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM users WHERE username=?", (u,))
         user = cur.fetchone()
         conn.close()
 
-        if user and check_password_hash(user[2],p):
-            session['user']=u
+        if user and check_password_hash(user[3], p):
+            session['user'] = u
             return redirect('/dashboard')
-        return "❌ Invalid Login"
+
+        return render_template("login.html", error="Invalid login")
 
     return render_template("login.html")
 
-# -------- LOGOUT --------
-@app.route('/logout')
-def logout():
-    session.pop('user',None)
-    return redirect('/login')
-
-# -------- DASHBOARD --------
+# ================= DASHBOARD =================
 @app.route('/dashboard')
 def dashboard():
     if 'user' not in session:
         return redirect('/login')
-    return render_template("dashboard.html", scans=len(history))
 
-# -------- SCANNER --------
-@app.route('/', methods=['GET','POST'])
-def index():
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM scans WHERE user_id=?", (session['user'],))
+    scans = cur.fetchall()
+    conn.close()
+
+    return render_template("dashboard.html", scans=scans)
+
+# ================= SCANNER =================
+@app.route('/scanner', methods=['GET','POST'])
+def scanner():
     if 'user' not in session:
         return redirect('/login')
 
-    result={}
-    if request.method=='POST':
-        url=request.form['url']
+    result = {}
 
-        result['SQL Injection']=scan_sql(url)
-        result['XSS']=scan_xss(url)
+    if request.method == 'POST':
+        url = request.form.get('url')
 
-        generate_report(url,result)
+        if "?" not in url:
+            url += "?id=1"
 
-        history.append({"url":url,"result":result})
+        sql = scan_sql(url)
+        xss = scan_xss(url)
 
-    return render_template("index.html",result=result)
+        result['SQL Injection'] = sql
+        result['XSS'] = xss
 
-# -------- DOWNLOAD PDF --------
-@app.route('/download')
-def download():
-    path=os.path.join(BASE_DIR, "scan_report.pdf")
-    if os.path.exists(path):
-        return send_file(path,as_attachment=True)
-    return "No report"
+        if "Vulnerable" in sql or "Vulnerable" in xss:
+            result['Severity'] = "High"
+        else:
+            result['Severity'] = "Low"
 
-# -------- DOWNLOAD HTML --------
-@app.route('/download_html')
-def download_html():
-    path=os.path.join(BASE_DIR, "scan_report.html")
-    if os.path.exists(path):
-        return send_file(path,as_attachment=True)
-    return "No report"
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO scans (url,result,user_id) VALUES (?,?,?)",
+            (url, str(result), session['user'])
+        )
+        conn.commit()
+        conn.close()
 
-# -------- ADMIN --------
-@app.route('/admin')
-def admin():
-    conn=sqlite3.connect(DB_PATH)
-    cur=conn.cursor()
-    cur.execute("SELECT id,username FROM users")
-    users=cur.fetchall()
+    return render_template("index.html", result=result)
+
+# ================= PROFILE =================
+@app.route('/profile')
+def profile():
+    if 'user' not in session:
+        return redirect('/login')
+
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT username,email FROM users WHERE username=?", (session['user'],))
+    user = cur.fetchone()
     conn.close()
-    return render_template("admin.html",users=users)
 
-# -------- RUN (IMPORTANT FOR RENDER) --------
+    return render_template("profile.html", user=user)
+
+# ================= LOGOUT =================
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect('/login')
+
+# ================= RUN =================
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(debug=True)

@@ -2,47 +2,112 @@
 <html>
 <head>
 <title>Cyber War Login</title>
+
 <style>
 body {
     margin:0;
-    font-family:sans-serif;
-    background:url('https://images.unsplash.com/photo-1526378722484-cc5c5101f431') no-repeat center/cover;
+    font-family:'Segoe UI';
+    background:linear-gradient(135deg,#0f172a,#1e293b);
     height:100vh;
     display:flex;
     justify-content:center;
     align-items:center;
 }
-body::before {
-    content:"";
-    position:fixed;
-    width:100%;
-    height:100%;
-    background:rgba(0,0,0,0.85);
-}
+
+/* CARD */
 .card {
-    padding:40px;
-    width:300px;
-    border-radius:15px;
     background:rgba(255,255,255,0.05);
     backdrop-filter:blur(15px);
+    padding:40px;
+    border-radius:15px;
+    width:320px;
     text-align:center;
     color:white;
+    box-shadow:0 0 30px rgba(0,255,159,0.3);
 }
-h2 {color:#00ff9f;}
-input {margin:10px;padding:10px;width:90%;}
-button {width:100%;padding:10px;background:#00ff9f;border:none;}
+
+/* TITLE */
+h2 {
+    color:#00ff9f;
+    margin-bottom:20px;
+}
+
+/* INPUT WRAPPER */
+.input-box {
+    position:relative;
+    margin:15px 0;
+}
+
+.input-box input {
+    width:100%;
+    padding:12px 12px 12px 40px;
+    border-radius:8px;
+    border:none;
+    outline:none;
+}
+
+/* ICON */
+.input-box span {
+    position:absolute;
+    left:10px;
+    top:50%;
+    transform:translateY(-50%);
+    color:#555;
+}
+
+/* PLACEHOLDER FIX */
+input::placeholder {
+    color:#aaa;
+}
+input:focus::placeholder {
+    color:transparent;
+}
+
+/* BUTTON */
+button {
+    width:100%;
+    padding:12px;
+    background:linear-gradient(45deg,#00ff9f,#00adb5);
+    border:none;
+    font-weight:bold;
+    cursor:pointer;
+    border-radius:8px;
+    transition:0.3s;
+}
+
+button:hover {
+    transform:scale(1.05);
+}
+
+/* LINK */
+a {
+    color:#00ff9f;
+    text-decoration:none;
+}
 </style>
 </head>
+
 <body>
 
 <div class="card">
-<h2>⚔️ Cyber War</h2>
-<form method="POST">
-<input name="username" required>
-<input type="password" name="password" required>
-<button>Login</button>
-</form>
-<a href="/register">Create Account</a>
+    <h2>⚔️ Cyber War</h2>
+
+    <form method="POST">
+
+        <div class="input-box">
+            <span>👤</span>
+            <input name="username" placeholder="Username" required>
+        </div>
+
+        <div class="input-box">
+            <span>🔒</span>
+            <input type="password" name="password" placeholder="Password" required>
+        </div>
+
+        <button>Login</button>
+    </form>
+
+    <p><a href="/register">Create Account</a></p>
 </div>
 
 </body>
