@@ -7,6 +7,7 @@ from scanner.sql_injection import scan_sql
 from scanner.xss import scan_xss
 from scanner.headers import scan_headers
 from scanner.open_redirect import scan_redirect
+from scanner.crawler import crawl
 
 # UTILS
 from utils.severity import calculate_severity
@@ -15,8 +16,8 @@ from report import generate_report
 
 app = Flask(__name__)
 
-# 🔐 SECURE SECRET KEY (NO HARDCODE)
-app.secret_key = os.environ.get("SECRET_KEY", "fallback_dev_key")
+# 🔐 Secure secret key
+app.secret_key = os.environ.get("SECRET_KEY", "dev_fallback_key")
 
 DB_PATH = os.environ.get("DB_PATH", "database.db")
 scan_status = {}
@@ -113,6 +114,18 @@ def run_scan(url, user_id):
     result = {}
 
     try:
+        # Crawl pages
+        pages = crawl(url)
+        result["Pages Scanned"] = len(pages)
+
+        # Scan only first few pages (performance)
+        for page in pages[:5]:
+            result[page] = {
+                "SQL": scan_sql(page),
+                "XSS": scan_xss(page)
+            }
+
+        # Main URL checks
         result['SQL'] = scan_sql(url)
         scan_status[user_id] = "Scanning XSS..."
 
@@ -125,11 +138,9 @@ def run_scan(url, user_id):
         result['Redirect'] = scan_redirect(url)
 
         scan_status[user_id] = "Calculating severity..."
-
         result['Severity'] = calculate_severity(result)
 
         scan_status[user_id] = "Generating AI..."
-
         result['AI'] = explain(result)
 
     except Exception as e:
@@ -145,7 +156,7 @@ def run_scan(url, user_id):
     conn.commit()
     conn.close()
 
-    # Generate PDF
+    # Generate PDF report
     generate_report(url, result)
 
     scan_status[user_id] = "Completed ✅"
@@ -176,7 +187,7 @@ def status():
         "status": scan_status.get(session.get('user_id'), "Idle")
     })
 
-# ================= LATEST =================
+# ================= LATEST RESULT =================
 @app.route('/latest')
 def latest():
     conn = sqlite3.connect(DB_PATH)
