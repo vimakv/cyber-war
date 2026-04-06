@@ -1,25 +1,25 @@
 import requests
 
 def scan_headers(url):
+
+    required = [
+        "X-Frame-Options",
+        "Content-Security-Policy",
+        "Strict-Transport-Security"
+    ]
+
     try:
-        r = requests.get(url, timeout=5)
+        res = requests.get(url, timeout=6)
 
-        headers = r.headers
-        missing = []
-
-        if "Content-Security-Policy" not in headers:
-            missing.append("CSP Missing")
-
-        if "X-Frame-Options" not in headers:
-            missing.append("Clickjacking Protection Missing")
-
-        if "X-Content-Type-Options" not in headers:
-            missing.append("MIME Sniffing Protection Missing")
+        missing = [h for h in required if h not in res.headers]
 
         if missing:
-            return "Vulnerable: " + ", ".join(missing)
+            return {
+                "status": "Warning",
+                "missing": missing
+            }
 
-        return "Safe"
+        return {"status": "Safe"}
 
     except:
-        return "Error"
+        return {"status": "Error"}

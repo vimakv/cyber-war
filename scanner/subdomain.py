@@ -1,20 +1,17 @@
 import requests
 
 def scan_subdomains(domain):
-    subs = ["www","mail","ftp","test","dev","api","blog"]
 
+    subdomains = ["www", "mail", "ftp", "api", "dev", "test"]
     found = []
 
-    for sub in subs:
+    for sub in subdomains:
         url = f"http://{sub}.{domain}"
 
         try:
-            requests.get(url, timeout=2)
-            found.append(sub)
+            requests.get(url, timeout=3)
+            found.append(url)
         except:
-            pass
+            continue
 
-    if found:
-        return "Found: " + ", ".join(found)
-
-    return "No subdomains found"
+    return found

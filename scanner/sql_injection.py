@@ -1,26 +1,23 @@
 import requests
 
 def scan_sql(url):
+
     payloads = [
+        "'",
         "' OR '1'='1",
-        "' OR 1=1 --",
-        "' OR 'a'='a",
-        "\" OR \"1\"=\"1"
+        "' OR 1=1 --"
     ]
 
-    errors = [
+    sql_errors = [
         "sql syntax",
         "mysql",
         "syntax error",
         "unclosed quotation",
         "database error",
-        "pdo",
-        "odbc"
+        "sqlstate"
     ]
 
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+    headers = {"User-Agent": "Mozilla/5.0"}
 
     try:
         for payload in payloads:
@@ -30,23 +27,21 @@ def scan_sql(url):
             else:
                 test_url = url + "?id=" + payload
 
-            r = requests.get(test_url, headers=headers, timeout=5)
+            res = requests.get(test_url, headers=headers, timeout=6)
+            content = res.text.lower()
 
-            content = r.text.lower()
-
-            # 🔥 error-based detection
-            for err in errors:
+            # STRICT: only error-based detection
+            for err in sql_errors:
                 if err in content:
-                    return "Vulnerable"
+                    return {
+                        "status": "Vulnerable",
+                        "reason": "SQL error message detected"
+                    }
 
-            # 🔥 response difference check
-            normal = requests.get(url, headers=headers, timeout=5)
-            if len(r.text) != len(normal.text):
-                return "Possible"
-
-        return "Safe"
+        return {"status": "Safe"}
 
     except requests.exceptions.Timeout:
-        return "Timeout"
+        return {"status": "Timeout"}
+
     except:
-        return "Unreachable"
+        return {"status": "Unreachable"}

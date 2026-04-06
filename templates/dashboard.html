@@ -1,71 +1,85 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Cyber War Dashboard</title>
+    <title>Dashboard</title>
 
-<style>
-* {
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
-    font-family:'Segoe UI',sans-serif;
-}
+    <style>
+        body {
+            background: #000;
+            color: #00ff00;
+            font-family: monospace;
+            padding: 20px;
+        }
 
-body {
-    height:100vh;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    background:linear-gradient(135deg,#e3f2fd,#ffffff);
-}
+        h2 {
+            margin-bottom: 10px;
+        }
 
-/* CARD */
-.card {
-    background:white;
-    padding:40px;
-    border-radius:15px;
-    width:350px;
-    text-align:center;
-    box-shadow:0 20px 50px rgba(0,0,0,0.1);
-}
+        a {
+            color: #00ff00;
+            margin-right: 15px;
+            text-decoration: none;
+        }
 
-/* TITLE */
-h2 {
-    color:#007bff;
-    margin-bottom:20px;
-}
+        .box {
+            border: 1px solid #00ff00;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            background: #010101;
+        }
 
-/* BUTTONS */
-a {
-    display:block;
-    margin:12px 0;
-    padding:12px;
-    background:#007bff;
-    color:white;
-    text-decoration:none;
-    border-radius:8px;
-    transition:0.3s;
-}
+        .url {
+            color: #00ffff;
+            font-weight: bold;
+        }
 
-a:hover {
-    background:#0056b3;
-    transform:scale(1.05);
-}
-</style>
+        pre {
+            color: #00ff00;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
 
+        .high {
+            color: red;
+            font-weight: bold;
+        }
+
+        .low {
+            color: lightgreen;
+            font-weight: bold;
+        }
+
+        hr {
+            border-color: #00ff00;
+        }
+    </style>
 </head>
 
 <body>
 
-<div class="card">
-    <h2>⚔️ Cyber War</h2>
+<h2>> CYBER WAR DASHBOARD</h2>
 
-    <p style="margin-bottom:20px;">Welcome {{ session['user'] }}</p>
+<a href="/scanner">[ Start Scan ]</a>
+<a href="/logout">[ Logout ]</a>
 
-    <a href="/scanner">🔍 Go to Scanner</a>
-    <a href="/profile">👤 Profile</a>
-    <a href="/logout">🚪 Logout</a>
-</div>
+<hr>
+
+{% if scans %}
+    {% for scan in scans %}
+        <div class="box">
+
+            <p>> URL: <span class="url">{{ scan[1] }}</span></p>
+
+            <pre>
+{{ scan[2] }}
+            </pre>
+
+        </div>
+    {% endfor %}
+{% else %}
+    <p>> No scans yet...</p>
+{% endif %}
 
 </body>
 </html>

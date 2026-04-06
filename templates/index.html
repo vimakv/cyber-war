@@ -1,96 +1,142 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Cyber War Terminal</title>
+    <title>Scanner</title>
 
-<style>
-body {
-    background:black;
-    color:#00ff9f;
-    font-family:monospace;
-    padding:20px;
-}
-
-/* TERMINAL BOX */
-.terminal {
-    border:1px solid #00ff9f;
-    padding:20px;
-    border-radius:10px;
-    box-shadow:0 0 20px #00ff9f;
-}
-
-/* INPUT */
-input {
-    width:80%;
-    padding:10px;
-    background:black;
-    border:1px solid #00ff9f;
-    color:#00ff9f;
-}
-
-/* BUTTON */
-button {
-    padding:10px;
-    background:#00ff9f;
-    border:none;
-    cursor:pointer;
-}
-
-/* OUTPUT */
-.output {
-    margin-top:20px;
-    white-space:pre-line;
-}
-</style>
-
-<script>
-function typeEffect(text, id) {
-    let i = 0;
-    let speed = 20;
-    let elem = document.getElementById(id);
-    elem.innerHTML = "";
-
-    function type() {
-        if (i < text.length) {
-            elem.innerHTML += text.charAt(i);
-            i++;
-            setTimeout(type, speed);
+    <style>
+        body {
+            background: black;
+            color: #00ff00;
+            font-family: monospace;
+            padding: 20px;
         }
-    }
-    type();
-}
-</script>
 
+        input, button {
+            background: black;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 10px;
+            margin-top: 5px;
+        }
+
+        h2 {
+            margin-bottom: 10px;
+        }
+
+        .result-box {
+            border: 1px solid #00ff00;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+        }
+
+        .vuln {
+            color: red;
+            font-weight: bold;
+        }
+
+        .safe {
+            color: lightgreen;
+            font-weight: bold;
+        }
+
+        .warn {
+            color: orange;
+            font-weight: bold;
+        }
+
+        .ai-box {
+            margin-top: 15px;
+            padding: 10px;
+            border: 1px dashed #00ff00;
+        }
+
+        a button {
+            margin-top: 15px;
+        }
+    </style>
 </head>
 
 <body>
 
-<div class="terminal">
-
-<h3>⚔️ CYBER WAR TERMINAL</h3>
+<h2>> VULNERABILITY SCANNER</h2>
 
 <form method="POST">
-<input name="url" placeholder="Enter target URL" required>
-<button>SCAN</button>
+    <input type="text" name="url" placeholder="Enter URL" required>
+    <br>
+    <button type="submit">Start Scan</button>
 </form>
 
-{% if result %}
+<p id="status">Status: Idle</p>
 
-<div class="output" id="out"></div>
+<div id="result" class="result-box"></div>
+
+<a href="/report">
+    <button>⬇️ Download Report</button>
+</a>
 
 <script>
-let data = `
-{% for k,v in result.items() %}
-{{ k }} : {{ v }}
-{% endfor %}
-`;
+setInterval(async () => {
 
-typeEffect(data, "out");
+    let res = await fetch('/status');
+    let data = await res.json();
+
+    document.getElementById("status").innerText = "Status: " + data.status;
+
+    if (data.status.includes("Completed")) {
+
+        let r = await fetch('/latest');
+        let result = await r.json();
+
+        if (result.result) {
+
+            let html = `<h3>> ${result.url}</h3>`;
+
+            let aiText = "";
+
+            for (let key in result.result) {
+
+                let value = result.result[key];
+
+                // Handle AI separately
+                if (key === "AI") {
+                    aiText = value;
+                    continue;
+                }
+
+                let status = (typeof value === "object") ? value.status : value;
+
+                let cls = "safe";
+                let icon = "🟢";
+
+                if (status === "Vulnerable") {
+                    cls = "vuln";
+                    icon = "🔴";
+                } 
+                else if (status === "Possible" || status === "Warning") {
+                    cls = "warn";
+                    icon = "🟡";
+                }
+
+                html += `<p>${key} → ${icon} <span class="${cls}">${status}</span></p>`;
+            }
+
+            // AI Section
+            if (aiText) {
+                html += `
+                    <div class="ai-box">
+                        <b>🤖 AI Analysis:</b>
+                        <p>${aiText}</p>
+                    </div>
+                `;
+            }
+
+            document.getElementById("result").innerHTML = html;
+        }
+    }
+
+}, 1500);
 </script>
-
-{% endif %}
-
-</div>
 
 </body>
 </html>

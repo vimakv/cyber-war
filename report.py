@@ -1,45 +1,61 @@
-from fpdf import FPDF
-from datetime import datetime
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+import datetime
 
 def generate_report(url, result):
 
-    pdf = FPDF()
-    pdf.add_page()
+    doc = SimpleDocTemplate("report.pdf")
+    styles = getSampleStyleSheet()
 
-    pdf.set_font("Arial", "B", 16)
-    pdf.cell(200, 10, "Cyber War Scan Report", ln=True, align="C")
+    content = []
 
-    pdf.ln(10)
+    # ================= TITLE =================
+    content.append(Paragraph("Vulnerability Scan Report", styles["Title"]))
+    content.append(Spacer(1, 10))
 
-    pdf.set_font("Arial", size=12)
-    pdf.cell(200, 10, f"Date: {datetime.now()}", ln=True)
-    pdf.cell(200, 10, f"URL: {url}", ln=True)
+    # ================= META =================
+    content.append(Paragraph(f"<b>Target URL:</b> {url}", styles["Normal"]))
+    content.append(Paragraph(
+        f"<b>Scan Time:</b> {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        styles["Normal"]
+    ))
+    content.append(Spacer(1, 15))
 
-    pdf.ln(10)
+    # ================= RESULTS =================
+    content.append(Paragraph("<b>Scan Results:</b>", styles["Heading2"]))
+    content.append(Spacer(1, 10))
 
-    for k, v in result.items():
+    for key, value in result.items():
 
-        # 🎨 COLOR
-        if "Vulnerable" in v:
-            pdf.set_text_color(255, 0, 0)   # RED
-        elif "Safe" in v:
-            pdf.set_text_color(0, 150, 0)   # GREEN
+        if isinstance(value, dict):
+            status = value.get("status", "Unknown")
+            reason = value.get("reason", "")
+
+            line = f"<b>{key}:</b> {status}"
+
+            if reason:
+                line += f" - {reason}"
+
+            content.append(Paragraph(line, styles["Normal"]))
+
+        elif key == "AI":
+            content.append(Spacer(1, 10))
+            content.append(Paragraph("<b>AI Analysis:</b>", styles["Heading3"]))
+            content.append(Spacer(1, 5))
+            content.append(Paragraph(value, styles["Normal"]))
+
         else:
-            pdf.set_text_color(255, 165, 0) # ORANGE
+            content.append(Paragraph(f"<b>{key}:</b> {value}", styles["Normal"]))
 
-        pdf.cell(200, 10, f"{k}: {v}", ln=True)
+        content.append(Spacer(1, 8))
 
-    pdf.output("scan_report.pdf")
+    # ================= SUMMARY =================
+    content.append(Spacer(1, 15))
+    content.append(Paragraph("<b>Security Summary:</b>", styles["Heading2"]))
+    content.append(Spacer(1, 10))
 
-    # -------- HTML REPORT --------
-    html = f"""
-    <h2>Cyber War Report</h2>
-    <p><b>URL:</b> {url}</p>
-    <p><b>Date:</b> {datetime.now()}</p>
-    """
+    summary = "Ensure proper input validation, secure coding practices, and proper security headers configuration."
+    content.append(Paragraph(summary, styles["Normal"]))
 
-    for k,v in result.items():
-        html += f"<p><b>{k}</b>: {v}</p>"
-
-    with open("scan_report.html","w") as f:
-        f.write(html)
+    # ================= BUILD =================
+    doc.build(content)
