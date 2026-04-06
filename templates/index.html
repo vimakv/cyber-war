@@ -1,141 +1,160 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Scanner</title>
+    <meta charset="UTF-8">
+    <title>Web Vulnerability Scanner</title>
 
     <style>
         body {
-            background: black;
+            background: #000;
             color: #00ff00;
-            font-family: monospace;
+            font-family: "Courier New", monospace;
+            margin: 0;
+            padding: 0;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             padding: 20px;
         }
 
-        input, button {
+        .title {
+            font-size: 20px;
+            text-shadow: 0 0 10px #00ff00;
+        }
+
+        .logout button {
             background: black;
             color: #00ff00;
             border: 1px solid #00ff00;
+            padding: 8px 15px;
+            cursor: pointer;
+        }
+
+        .logout button:hover {
+            background: #00ff00;
+            color: black;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 50px;
+        }
+
+        input {
+            width: 300px;
             padding: 10px;
-            margin-top: 5px;
-        }
-
-        h2 {
-            margin-bottom: 10px;
-        }
-
-        .result-box {
+            background: black;
             border: 1px solid #00ff00;
+            color: #00ff00;
+            outline: none;
+            margin-bottom: 15px;
+        }
+
+        input::placeholder {
+            color: #00aa00;
+        }
+
+        button.scan {
+            padding: 10px 20px;
+            background: black;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            cursor: pointer;
+        }
+
+        button.scan:hover {
+            background: #00ff00;
+            color: black;
+        }
+
+        .status {
             margin-top: 20px;
+            font-size: 14px;
+        }
+
+        .terminal {
+            margin-top: 30px;
+            width: 80%;
+            max-width: 700px;
+            border: 1px solid #00ff00;
             padding: 15px;
-            border-radius: 5px;
+            box-shadow: 0 0 10px #00ff00;
+            min-height: 150px;
         }
 
-        .vuln {
-            color: red;
-            font-weight: bold;
+        .blink {
+            animation: blink 1s infinite;
         }
 
-        .safe {
-            color: lightgreen;
-            font-weight: bold;
-        }
-
-        .warn {
-            color: orange;
-            font-weight: bold;
-        }
-
-        .ai-box {
-            margin-top: 15px;
-            padding: 10px;
-            border: 1px dashed #00ff00;
-        }
-
-        a button {
-            margin-top: 15px;
+        @keyframes blink {
+            0% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
         }
     </style>
 </head>
 
 <body>
 
-<h2>> VULNERABILITY SCANNER</h2>
+<!-- HEADER -->
+<div class="header">
+    <div class="title">🛡 Cyber War Scanner</div>
 
-<form method="POST">
-    <input type="text" name="url" placeholder="Enter URL" required>
-    <br>
-    <button type="submit">Start Scan</button>
-</form>
+    <div class="logout">
+        <a href="/logout">
+            <button>Logout</button>
+        </a>
+    </div>
+</div>
 
-<p id="status">Status: Idle</p>
+<!-- MAIN -->
+<div class="container">
 
-<div id="result" class="result-box"></div>
+    <form method="POST" onsubmit="startScan()">
+        <input type="text" name="url" placeholder="Enter target URL (https://example.com)" required>
+        <br>
+        <button class="scan" type="submit">Start Scan</button>
+    </form>
 
-<a href="/report">
-    <button>⬇️ Download Report</button>
-</a>
+    <!-- STATUS -->
+    <div class="status" id="status">
+        Status: Idle
+    </div>
+
+    <!-- TERMINAL -->
+    <div class="terminal" id="terminal">
+        > Waiting for scan...
+        <span class="blink">█</span>
+    </div>
+
+</div>
 
 <script>
-setInterval(async () => {
-
-    let res = await fetch('/status');
-    let data = await res.json();
-
-    document.getElementById("status").innerText = "Status: " + data.status;
-
-    if (data.status.includes("Completed")) {
-
-        let r = await fetch('/latest');
-        let result = await r.json();
-
-        if (result.result) {
-
-            let html = `<h3>> ${result.url}</h3>`;
-
-            let aiText = "";
-
-            for (let key in result.result) {
-
-                let value = result.result[key];
-
-                // Handle AI separately
-                if (key === "AI") {
-                    aiText = value;
-                    continue;
-                }
-
-                let status = (typeof value === "object") ? value.status : value;
-
-                let cls = "safe";
-                let icon = "🟢";
-
-                if (status === "Vulnerable") {
-                    cls = "vuln";
-                    icon = "🔴";
-                } 
-                else if (status === "Possible" || status === "Warning") {
-                    cls = "warn";
-                    icon = "🟡";
-                }
-
-                html += `<p>${key} → ${icon} <span class="${cls}">${status}</span></p>`;
-            }
-
-            // AI Section
-            if (aiText) {
-                html += `
-                    <div class="ai-box">
-                        <b>🤖 AI Analysis:</b>
-                        <p>${aiText}</p>
-                    </div>
-                `;
-            }
-
-            document.getElementById("result").innerHTML = html;
-        }
+    function startScan() {
+        document.getElementById("status").innerText = "Status: Scanning...";
+        document.getElementById("terminal").innerHTML = "> Initializing scan...<br>";
     }
 
-}, 1500);
+    // 🔄 Live status polling
+    setInterval(async () => {
+        try {
+            let res = await fetch('/status');
+            let data = await res.json();
+
+            document.getElementById("status").innerText = "Status: " + data.status;
+
+            if (data.status.includes("Completed")) {
+                document.getElementById("terminal").innerHTML += "> Scan completed ✔<br>";
+            }
+        } catch (e) {
+            console.log(e);
+        }
+    }, 3000);
 </script>
 
 </body>

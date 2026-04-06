@@ -83,24 +83,30 @@ def register():
             "time": time.time()
         }
 
-        msg = Message(
-            "Verify your account",
-            sender=app.config['MAIL_USERNAME'],
-            recipients=[email]
-        )
-
-        msg.body = f"Your OTP is: {code} (valid 5 minutes)"
-
-        # 🔥 SAFE MAIL SEND (no crash)
         try:
+            msg = Message(
+                "Verify your account",
+                sender=app.config['MAIL_USERNAME'],
+                recipients=[email]
+            )
+            msg.body = f"Your OTP is: {code} (valid 5 minutes)"
             mail.send(msg)
         except Exception as e:
             print("MAIL ERROR:", e)
-            return f"Email failed. Use console OTP: {code}"
 
-        return render_template("verify.html", email=email)
+        return f"""
+        <h2>OTP Generated</h2>
+        <p>Your OTP: <b>{code}</b></p>
+        <a href='/verify_page?email={email}'>Verify</a>
+        """
 
     return render_template("register.html")
+
+# ================= VERIFY PAGE =================
+@app.route('/verify_page')
+def verify_page():
+    email = request.args.get('email')
+    return render_template("verify.html", email=email)
 
 # ================= VERIFY =================
 @app.route('/verify', methods=['POST'])
@@ -111,11 +117,11 @@ def verify():
     data = verification_codes.get(email)
 
     if not data:
-        return "Session expired. Register again."
+        return "Session expired"
 
     if time.time() - data["time"] > 300:
         verification_codes.pop(email)
-        return "OTP expired. Register again."
+        return "OTP expired"
 
     if data["code"] == code:
         conn = sqlite3.connect(DB_PATH)
@@ -128,10 +134,9 @@ def verify():
             )
             conn.commit()
         except:
-            return "User already exists"
+            return "User exists"
 
         conn.close()
-
         verification_codes.pop(email)
 
         return redirect('/login')
@@ -159,27 +164,19 @@ def login():
 
     return render_template("login.html")
 
-# ================= LOGOUT =================
+# ================= LOGOUT (FINAL FIX) =================
 @app.route('/logout')
 def logout():
-    session.clear()
+    session.pop('user_id', None)   # 🔥 remove only user
     return redirect('/login')
 
 # ================= SCAN =================
 def run_scan(url, user_id):
-    scan_status[user_id] = "Scanning..."
-
     result = {}
 
     try:
         pages = crawl(url)
-        result["Pages Scanned"] = len(pages)
-
-        for page in pages[:3]:
-            result[page] = {
-                "SQL": scan_sql(page),
-                "XSS": scan_xss(page)
-            }
+        result["Pages"] = len(pages)
 
         result['SQL'] = scan_sql(url)
         result['XSS'] = scan_xss(url)
@@ -192,53 +189,27 @@ def run_scan(url, user_id):
     except Exception as e:
         result['Error'] = str(e)
 
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO scans (url,result,user_id) VALUES (?,?,?)",
-        (url, json.dumps(result), user_id)
-    )
-    conn.commit()
-    conn.close()
-
     generate_report(url, result)
 
-    scan_status[user_id] = "Completed ✅"
-
-# ================= SCANNER =================
+# ================= SCANNER (PROTECTED) =================
 @app.route('/scanner', methods=['GET','POST'])
 def scanner():
     if 'user_id' not in session:
-        return redirect('/login')
+        return redirect('/login')   # 🔥 PROTECTION
 
     if request.method == 'POST':
         url = request.form['url']
-
-        if not url.startswith("http"):
-            url = "http://" + url
-
-        threading.Thread(
-            target=run_scan,
-            args=(url, session['user_id'])
-        ).start()
+        threading.Thread(target=run_scan, args=(url, session['user_id'])).start()
 
     return render_template("index.html")
-
-# ================= STATUS =================
-@app.route('/status')
-def status():
-    return jsonify({
-        "status": scan_status.get(session.get('user_id'), "Idle")
-    })
 
 # ================= REPORT =================
 @app.route('/report')
 def report():
     if os.path.exists("report.pdf"):
         return send_file("report.pdf", as_attachment=True)
-    return "No report available"
+    return "No report"
 
 # ================= RUN =================
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
