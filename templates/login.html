@@ -1,114 +1,152 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Cyber War Login</title>
+    <meta charset="UTF-8">
+    <title>Login</title>
 
-<style>
-body {
-    margin:0;
-    font-family:'Segoe UI';
-    background:linear-gradient(135deg,#0f172a,#1e293b);
-    height:100vh;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-}
+    <style>
+        body {
+            background: #000;
+            color: #00ff00;
+            font-family: "Courier New", monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
 
-/* CARD */
-.card {
-    background:rgba(255,255,255,0.05);
-    backdrop-filter:blur(15px);
-    padding:40px;
-    border-radius:15px;
-    width:320px;
-    text-align:center;
-    color:white;
-    box-shadow:0 0 30px rgba(0,255,159,0.3);
-}
+        .box {
+            border: 1px solid #00ff00;
+            padding: 30px;
+            width: 300px;
+            text-align: center;
+            box-shadow: 0 0 15px #00ff00;
+        }
 
-/* TITLE */
-h2 {
-    color:#00ff9f;
-    margin-bottom:20px;
-}
+        h2 {
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #00ff00;
+        }
 
-/* INPUT WRAPPER */
-.input-box {
-    position:relative;
-    margin:15px 0;
-}
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            background: black;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            outline: none;
+        }
 
-.input-box input {
-    width:100%;
-    padding:12px 12px 12px 40px;
-    border-radius:8px;
-    border:none;
-    outline:none;
-}
+        .password-box {
+            position: relative;
+        }
 
-/* ICON */
-.input-box span {
-    position:absolute;
-    left:10px;
-    top:50%;
-    transform:translateY(-50%);
-    color:#555;
-}
+        .eye {
+            position: absolute;
+            right: 10px;
+            top: 12px;
+            cursor: pointer;
+            color: #00ff00;
+        }
 
-/* PLACEHOLDER FIX */
-input::placeholder {
-    color:#aaa;
-}
-input:focus::placeholder {
-    color:transparent;
-}
+        .remember {
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+            margin-bottom: 15px;
+        }
 
-/* BUTTON */
-button {
-    width:100%;
-    padding:12px;
-    background:linear-gradient(45deg,#00ff9f,#00adb5);
-    border:none;
-    font-weight:bold;
-    cursor:pointer;
-    border-radius:8px;
-    transition:0.3s;
-}
+        button {
+            width: 100%;
+            padding: 10px;
+            background: black;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            cursor: pointer;
+        }
 
-button:hover {
-    transform:scale(1.05);
-}
+        button:hover {
+            background: #00ff00;
+            color: black;
+        }
 
-/* LINK */
-a {
-    color:#00ff9f;
-    text-decoration:none;
-}
-</style>
+        /* 🔄 Loading */
+        .loader {
+            display: none;
+            margin-top: 10px;
+        }
+
+        .loader span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #00ff00;
+            margin: 3px;
+            animation: blink 1s infinite;
+        }
+
+        .loader span:nth-child(2) { animation-delay: 0.2s; }
+        .loader span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes blink {
+            0% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        .link {
+            margin-top: 15px;
+            font-size: 13px;
+        }
+
+        a {
+            color: #00ff00;
+            text-decoration: none;
+        }
+    </style>
 </head>
 
 <body>
 
-<div class="card">
-    <h2>⚔️ Cyber War</h2>
+<div class="box">
+    <h2>🔐 Login</h2>
 
-    <form method="POST">
+    <form method="POST" action="/login" onsubmit="showLoader()">
+        <input type="text" name="username" placeholder="Username" required>
 
-        <div class="input-box">
-            <span>👤</span>
-            <input name="username" placeholder="Username" required>
+        <div class="password-box">
+            <input type="password" id="password" name="password" placeholder="Password" required>
+            <span class="eye" onclick="togglePassword()">👁</span>
         </div>
 
-        <div class="input-box">
-            <span>🔒</span>
-            <input type="password" name="password" placeholder="Password" required>
+        <div class="remember">
+            <input type="checkbox" name="remember">
+            <label>Remember Me</label>
         </div>
 
-        <button>Login</button>
+        <button type="submit">Login</button>
+
+        <div class="loader" id="loader">
+            <span></span><span></span><span></span>
+        </div>
     </form>
 
-    <p><a href="/register">Create Account</a></p>
+    <div class="link">
+        Don’t have an account? <a href="/register">Register</a>
+    </div>
 </div>
+
+<script>
+    function togglePassword() {
+        let pass = document.getElementById("password");
+        pass.type = pass.type === "password" ? "text" : "password";
+    }
+
+    function showLoader() {
+        document.getElementById("loader").style.display = "block";
+    }
+</script>
 
 </body>
 </html>

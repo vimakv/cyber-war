@@ -1,6 +1,7 @@
-from flask import Flask, request, render_template, redirect, session, jsonify, send_file
-import sqlite3, threading, json, os
+from flask import Flask, request, render_template, redirect, jsonify, make_response
+import sqlite3, threading, json, os, random, time, jwt
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_mail import Mail, Message
 
 # SCANNERS
 from scanner.sql_injection import scan_sql
@@ -16,11 +17,20 @@ from report import generate_report
 
 app = Flask(__name__)
 
-# 🔐 Secure secret key
-app.secret_key = os.environ.get("SECRET_KEY", "dev_fallback_key")
+SECRET_KEY = os.environ.get("SECRET_KEY", "dev_key")
 
-DB_PATH = os.environ.get("DB_PATH", "database.db")
+# 📧 MAIL CONFIG
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.environ.get("EMAIL_USER")
+app.config['MAIL_PASSWORD'] = os.environ.get("EMAIL_PASS")
+
+mail = Mail(app)
+
+verification_codes = {}
 scan_status = {}
+DB_PATH = "database.db"
 
 # ================= DATABASE =================
 def init_db():
@@ -36,19 +46,28 @@ def init_db():
     )
     """)
 
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS scans (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        url TEXT,
-        result TEXT,
-        user_id INTEGER
-    )
-    """)
-
     conn.commit()
     conn.close()
 
 init_db()
+
+# ================= JWT HELPER =================
+def create_token(user_id, remember=False):
+    exp_time = time.time() + (86400 if remember else 900)  # 1 day or 15 min
+
+    token = jwt.encode({
+        "user_id": user_id,
+        "exp": exp_time
+    }, SECRET_KEY, algorithm="HS256")
+
+    return token
+
+def verify_token(token):
+    try:
+        data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        return data["user_id"]
+    except:
+        return None
 
 # ================= HOME =================
 @app.route('/')
@@ -59,164 +78,137 @@ def home():
 @app.route('/register', methods=['GET','POST'])
 def register():
     if request.method == 'POST':
-        u = request.form['username']
-        e = request.form['email']
-        p = request.form['password']
+        username = request.form['username']
+        email = request.form['email']
+        password = request.form['password']
 
+        code = str(random.randint(100000, 999999))
+
+        verification_codes[email] = {
+            "code": code,
+            "username": username,
+            "password": generate_password_hash(password),
+            "time": time.time()
+        }
+
+        msg = Message("Verify Account",
+                      sender=app.config['MAIL_USERNAME'],
+                      recipients=[email])
+        msg.body = f"OTP: {code} (valid 5 min)"
+
+        mail.send(msg)
+
+        return render_template("verify.html", email=email)
+
+    return render_template("register.html")
+
+# ================= VERIFY =================
+@app.route('/verify', methods=['POST'])
+def verify():
+    email = request.form['email']
+    code = request.form['code']
+
+    data = verification_codes.get(email)
+
+    if not data:
+        return "Session expired"
+
+    if time.time() - data["time"] > 300:
+        verification_codes.pop(email)
+        return "OTP expired"
+
+    if data["code"] == code:
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
 
-        try:
-            cur.execute(
-                "INSERT INTO users (username,email,password) VALUES (?,?,?)",
-                (u, e, generate_password_hash(p))
-            )
-            conn.commit()
-        except:
-            return "User already exists"
+        cur.execute(
+            "INSERT INTO users (username,email,password) VALUES (?,?,?)",
+            (data["username"], email, data["password"])
+        )
 
+        conn.commit()
         conn.close()
+
+        verification_codes.pop(email)
         return redirect('/login')
 
-    return render_template("register.html")
+    return "Invalid OTP"
 
 # ================= LOGIN =================
 @app.route('/login', methods=['GET','POST'])
 def login():
     if request.method == 'POST':
-        u = request.form['username']
-        p = request.form['password']
+        username = request.form['username']
+        password = request.form['password']
+        remember = request.form.get('remember')
 
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
-        cur.execute("SELECT id,password FROM users WHERE username=?", (u,))
+        cur.execute("SELECT id,password FROM users WHERE username=?", (username,))
         user = cur.fetchone()
         conn.close()
 
-        if user and check_password_hash(user[1], p):
-            session['user_id'] = user[0]
-            return redirect('/scanner')
+        if user and check_password_hash(user[1], password):
+            token = create_token(user[0], remember)
+
+            resp = make_response(redirect('/scanner'))
+            resp.set_cookie("token", token, max_age=86400 if remember else None)
+
+            return resp
 
         return "Invalid login"
 
     return render_template("login.html")
 
+# ================= AUTH CHECK =================
+def get_user():
+    token = request.cookies.get("token")
+    if not token:
+        return None
+    return verify_token(token)
+
 # ================= LOGOUT =================
 @app.route('/logout')
 def logout():
-    session.clear()
-    return redirect('/login')
+    resp = make_response(redirect('/login'))
+    resp.set_cookie("token", "", expires=0)
+    return resp
 
-# ================= SCAN FUNCTION =================
+# ================= SCAN =================
 def run_scan(url, user_id):
-    scan_status[user_id] = "Scanning..."
-
     result = {}
 
     try:
-        # Crawl pages
         pages = crawl(url)
         result["Pages Scanned"] = len(pages)
 
-        # Scan only first few pages (performance)
-        for page in pages[:5]:
-            result[page] = {
-                "SQL": scan_sql(page),
-                "XSS": scan_xss(page)
-            }
-
-        # Main URL checks
         result['SQL'] = scan_sql(url)
-        scan_status[user_id] = "Scanning XSS..."
-
         result['XSS'] = scan_xss(url)
-        scan_status[user_id] = "Checking Headers..."
-
         result['Headers'] = scan_headers(url)
-        scan_status[user_id] = "Checking Redirect..."
-
         result['Redirect'] = scan_redirect(url)
 
-        scan_status[user_id] = "Calculating severity..."
         result['Severity'] = calculate_severity(result)
-
-        scan_status[user_id] = "Generating AI..."
         result['AI'] = explain(result)
 
     except Exception as e:
         result['Error'] = str(e)
 
-    # Save result
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO scans (url,result,user_id) VALUES (?,?,?)",
-        (url, json.dumps(result), user_id)
-    )
-    conn.commit()
-    conn.close()
-
-    # Generate PDF report
     generate_report(url, result)
-
-    scan_status[user_id] = "Completed ✅"
 
 # ================= SCANNER =================
 @app.route('/scanner', methods=['GET','POST'])
 def scanner():
-    if 'user_id' not in session:
+    user_id = get_user()
+
+    if not user_id:
         return redirect('/login')
 
     if request.method == 'POST':
         url = request.form['url']
-
-        if not url.startswith("http"):
-            url = "http://" + url
-
-        threading.Thread(
-            target=run_scan,
-            args=(url, session['user_id'])
-        ).start()
+        threading.Thread(target=run_scan, args=(url, user_id)).start()
 
     return render_template("index.html")
 
-# ================= STATUS =================
-@app.route('/status')
-def status():
-    return jsonify({
-        "status": scan_status.get(session.get('user_id'), "Idle")
-    })
-
-# ================= LATEST RESULT =================
-@app.route('/latest')
-def latest():
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-
-    cur.execute(
-        "SELECT url, result FROM scans WHERE user_id=? ORDER BY id DESC LIMIT 1",
-        (session.get('user_id'),)
-    )
-
-    data = cur.fetchone()
-    conn.close()
-
-    if data:
-        return jsonify({
-            "url": data[0],
-            "result": json.loads(data[1])
-        })
-
-    return jsonify({})
-
-# ================= DOWNLOAD REPORT =================
-@app.route('/report')
-def download_report():
-    if os.path.exists("report.pdf"):
-        return send_file("report.pdf", as_attachment=True)
-    return "Report not found"
-
 # ================= RUN =================
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
