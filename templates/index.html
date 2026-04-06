@@ -1,160 +1,103 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Web Vulnerability Scanner</title>
+    <title>Cyber Scanner</title>
 
     <style>
         body {
-            background: #000;
-            color: #00ff00;
-            font-family: "Courier New", monospace;
-            margin: 0;
-            padding: 0;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px;
-        }
-
-        .title {
-            font-size: 20px;
-            text-shadow: 0 0 10px #00ff00;
-        }
-
-        .logout button {
             background: black;
             color: #00ff00;
-            border: 1px solid #00ff00;
-            padding: 8px 15px;
-            cursor: pointer;
-        }
-
-        .logout button:hover {
-            background: #00ff00;
-            color: black;
+            font-family: monospace;
         }
 
         .container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-top: 50px;
+            text-align: center;
+            margin-top: 40px;
         }
 
         input {
-            width: 300px;
             padding: 10px;
+            width: 300px;
             background: black;
             border: 1px solid #00ff00;
             color: #00ff00;
-            outline: none;
-            margin-bottom: 15px;
         }
 
-        input::placeholder {
-            color: #00aa00;
-        }
-
-        button.scan {
-            padding: 10px 20px;
+        button {
+            padding: 10px;
+            margin-top: 10px;
             background: black;
             border: 1px solid #00ff00;
             color: #00ff00;
-            cursor: pointer;
-        }
-
-        button.scan:hover {
-            background: #00ff00;
-            color: black;
-        }
-
-        .status {
-            margin-top: 20px;
-            font-size: 14px;
         }
 
         .terminal {
             margin-top: 30px;
-            width: 80%;
-            max-width: 700px;
             border: 1px solid #00ff00;
             padding: 15px;
-            box-shadow: 0 0 10px #00ff00;
-            min-height: 150px;
-        }
-
-        .blink {
-            animation: blink 1s infinite;
-        }
-
-        @keyframes blink {
-            0% { opacity: 0; }
-            50% { opacity: 1; }
-            100% { opacity: 0; }
+            width: 80%;
+            margin: auto;
+            min-height: 200px;
+            text-align: left;
         }
     </style>
 </head>
 
 <body>
 
-<!-- HEADER -->
-<div class="header">
-    <div class="title">🛡 Cyber War Scanner</div>
-
-    <div class="logout">
-        <a href="/logout">
-            <button>Logout</button>
-        </a>
-    </div>
-</div>
-
-<!-- MAIN -->
 <div class="container">
 
-    <form method="POST" onsubmit="startScan()">
-        <input type="text" name="url" placeholder="Enter target URL (https://example.com)" required>
+    <h2>🛡 Scanner</h2>
+
+    <form method="POST" action="/scanner" onsubmit="startScan()">
+        <input type="text" name="url" placeholder="Enter URL" required>
         <br>
-        <button class="scan" type="submit">Start Scan</button>
+        <button type="submit">Scan</button>
     </form>
 
-    <!-- STATUS -->
-    <div class="status" id="status">
-        Status: Idle
+    <h3 id="status">Status: Idle</h3>
+
+    <div class="terminal" id="terminal">
+        > Waiting...
     </div>
 
-    <!-- TERMINAL -->
-    <div class="terminal" id="terminal">
-        > Waiting for scan...
-        <span class="blink">█</span>
-    </div>
+    <br>
+
+    <a href="/logout">
+        <button>Logout</button>
+    </a>
 
 </div>
 
 <script>
-    function startScan() {
-        document.getElementById("status").innerText = "Status: Scanning...";
-        document.getElementById("terminal").innerHTML = "> Initializing scan...<br>";
+function startScan() {
+    document.getElementById("status").innerText = "Status: Scanning...";
+    document.getElementById("terminal").innerHTML = "> Starting scan...<br>";
+}
+
+setInterval(async () => {
+    try {
+        let res = await fetch('/status');
+        let data = await res.json();
+
+        document.getElementById("status").innerText = "Status: " + data.status;
+
+        let terminal = document.getElementById("terminal");
+        terminal.innerHTML = "";
+
+        data.logs.forEach(line => {
+            let color = "#00ff00";
+
+            if (line.includes("❌")) color = "red";
+            else if (line.includes("⚠")) color = "yellow";
+
+            terminal.innerHTML += `<div style="color:${color}">> ${line}</div>`;
+        });
+
+    } catch {
+        console.log("Error fetching status");
     }
-
-    // 🔄 Live status polling
-    setInterval(async () => {
-        try {
-            let res = await fetch('/status');
-            let data = await res.json();
-
-            document.getElementById("status").innerText = "Status: " + data.status;
-
-            if (data.status.includes("Completed")) {
-                document.getElementById("terminal").innerHTML += "> Scan completed ✔<br>";
-            }
-        } catch (e) {
-            console.log(e);
-        }
-    }, 3000);
+}, 2000);
 </script>
 
 </body>
