@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<body style="background:black;color:#00ff00;font-family:monospace;">
+
+<h2>📜 Scan History</h2>
+
+{% for h in data %}
+<div>
+> {{ h.url }} → {{ h.verdict }}
+</div>
+{% endfor %}
+
+<br>
+
+<a href="/scanner"><button>Back</button></a>
+
+</body>
+</html>

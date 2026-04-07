@@ -1,103 +1,66 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Cyber Scanner</title>
+<title>Cyber Scanner</title>
 
-    <style>
-        body {
-            background: black;
-            color: #00ff00;
-            font-family: monospace;
-        }
-
-        .container {
-            text-align: center;
-            margin-top: 40px;
-        }
-
-        input {
-            padding: 10px;
-            width: 300px;
-            background: black;
-            border: 1px solid #00ff00;
-            color: #00ff00;
-        }
-
-        button {
-            padding: 10px;
-            margin-top: 10px;
-            background: black;
-            border: 1px solid #00ff00;
-            color: #00ff00;
-        }
-
-        .terminal {
-            margin-top: 30px;
-            border: 1px solid #00ff00;
-            padding: 15px;
-            width: 80%;
-            margin: auto;
-            min-height: 200px;
-            text-align: left;
-        }
-    </style>
+<style>
+body {background:black;color:#00ff00;font-family:monospace;}
+.container {text-align:center;margin-top:40px;}
+input {padding:10px;width:300px;background:black;border:1px solid #00ff00;color:#00ff00;}
+button {padding:10px;margin-top:10px;background:black;border:1px solid #00ff00;color:#00ff00;}
+.terminal {margin-top:30px;border:1px solid #00ff00;padding:15px;width:80%;margin:auto;min-height:200px;text-align:left;animation: glow 1s infinite alternate;}
+@keyframes glow {from{box-shadow:0 0 5px #0f0;}to{box-shadow:0 0 20px #0f0;}}
+</style>
 </head>
 
 <body>
 
 <div class="container">
 
-    <h2>🛡 Scanner</h2>
+<h2>🛡 Cyber War Scanner</h2>
 
-    <form method="POST" action="/scanner" onsubmit="startScan()">
-        <input type="text" name="url" placeholder="Enter URL" required>
-        <br>
-        <button type="submit">Scan</button>
-    </form>
+<form method="POST" action="/scanner" onsubmit="startScan()">
+<input type="text" name="url" placeholder="Enter URL" required><br>
+<button type="submit">Start Scan</button>
+</form>
 
-    <h3 id="status">Status: Idle</h3>
+<h3 id="status">Status: Idle</h3>
 
-    <div class="terminal" id="terminal">
-        > Waiting...
-    </div>
+<div class="terminal" id="terminal">> Waiting...</div>
 
-    <br>
+<br>
 
-    <a href="/logout">
-        <button>Logout</button>
-    </a>
+<a href="/history"><button>📜 History</button></a>
+<a href="/logout"><button>Logout</button></a>
 
 </div>
 
 <script>
-function startScan() {
-    document.getElementById("status").innerText = "Status: Scanning...";
-    document.getElementById("terminal").innerHTML = "> Starting scan...<br>";
+function startScan(){
+document.getElementById("status").innerText="Status: Scanning...";
+document.getElementById("terminal").innerHTML="> Starting scan...<br>";
 }
 
-setInterval(async () => {
-    try {
-        let res = await fetch('/status');
-        let data = await res.json();
+setInterval(async ()=>{
+let res=await fetch('/status');
+let data=await res.json();
 
-        document.getElementById("status").innerText = "Status: " + data.status;
+document.getElementById("status").innerText="Status: "+data.status;
 
-        let terminal = document.getElementById("terminal");
-        terminal.innerHTML = "";
+let terminal=document.getElementById("terminal");
+terminal.innerHTML="";
 
-        data.logs.forEach(line => {
-            let color = "#00ff00";
+data.logs.forEach(line=>{
+let color="#00ff00";
+if(line.includes("❌")) color="red";
+else if(line.includes("⚠")) color="yellow";
+else if(line.includes("🔴")) color="red";
+else if(line.includes("🟡")) color="orange";
+else if(line.includes("🟢")) color="lime";
 
-            if (line.includes("❌")) color = "red";
-            else if (line.includes("⚠")) color = "yellow";
-
-            terminal.innerHTML += `<div style="color:${color}">> ${line}</div>`;
-        });
-
-    } catch {
-        console.log("Error fetching status");
-    }
-}, 2000);
+terminal.innerHTML+=`<div style="color:${color}">> ${line}</div>`;
+});
+},2000);
 </script>
 
 </body>
